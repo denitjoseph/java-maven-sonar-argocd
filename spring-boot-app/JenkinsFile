@@ -16,8 +16,11 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo 'Source code is already checked out by Jenkins SCM.'
-                sh 'ls -la'
+                echo 'Source code checked out by Jenkins SCM'
+                sh '''
+                    pwd
+                    ls -la
+                '''
             }
         }
 
@@ -88,17 +91,24 @@ pipeline {
                     )
                 ]) {
 
-                    sh """
-                        git config user.email "denitjoseph@github.com"
-                        git config user.name "${GITHUB_USERNAME}"
+                    sh '''
+                        echo "Current workspace:"
+                        pwd
 
-                        echo "Updating Kubernetes deployment image..."
+                        echo "Checking Git repository:"
+                        ls -la
+                        git status
+
+                        echo "Updating deployment image..."
 
                         sed -i "s|image: .*|image: ${DOCKER_IMAGE}:${BUILD_NUMBER}|g" \
                             spring-boot-app-manifests/deployment.yml
 
-                        echo "Updated image:"
+                        echo "Updated deployment:"
                         grep "image:" spring-boot-app-manifests/deployment.yml
+
+                        git config user.email "denitjoseph@github.com"
+                        git config user.name "$GITHUB_USERNAME"
 
                         git add spring-boot-app-manifests/deployment.yml
 
@@ -107,9 +117,9 @@ pipeline {
                             || echo "No changes to commit"
 
                         git push \
-                            https://\\${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GIT_REPO_NAME}.git \
+                            https://${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${GIT_REPO_NAME}.git \
                             HEAD:main
-                    """
+                    '''
                 }
             }
         }
