@@ -29,38 +29,51 @@ pipeline {
         }
       }
     }
-    stage('Build and Push Docker Image') {
-      environment {
-        DOCKER_IMAGE = "the/ultimate-cicd:${BUILD_NUMBER}"
-        // DOCKERFILE_LOCATION = "java-maven-sonar-argocd-helm-k8s/spring-boot-app/Dockerfile"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
-      }
-      steps {
-        script {
-            sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
-            def dockerImage = docker.image("${DOCKER_IMAGE}")
-            docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
-                dockerImage.push()
+     stage('Build and Push Docker Image') {
+            steps {
+                script {
+
+                    // Build Docker image
+                    sh "docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} ."
+
+                    // Push Docker image to Docker Hub
+                    def dockerImage = docker.image("${DOCKER_IMAGE}:${BUILD_NUMBER}")
+
+                    docker.withRegistry(
+                        'https://index.docker.io/v1/',
+                        'docker-cred'
+                    ) {
+                        dockerImage.push()
+                        dockerImage.push("latest")
+                    }
+                }
             }
         }
-      }
-    }
-    stage('Update Deployment File') {
-        environment {
-            GIT_REPO_NAME = "Jenkins-repo"
-            GIT_USER_NAME = "username"
-        }
-        steps {
-            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                sh '''
-                    git config user.email "xyz@gmail.com"
-                    git config user.name "username"
-                    BUILD_NUMBER=${BUILD_NUMBER}
-                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                    git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                '''
+
+        stage('Update Deployment File') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'github',
+                        usernameVariable: 'GITHUB_USERNAME',
+                        passwordVariable: 'GITHUB_TOKEN'
+                    )
+                ]) {
+                    sh """
+                        git config user.email "denitjoseph@github.com"
+                        git config user.name "${GIT_USER_NAME}"
+
+                        sed -i "s|image: .*|image: ${DOCKER_IMAGE}:${BUILD_NUMBER}|g" K8s/deployment.yaml
+
+                        echo "Updated Kubernetes deployment:"
+                        grep "image:" K8s/deployment.yaml
+
+                        git add K8s/deployment.yaml
+
+                        git commit -m "Update fastapi app image tag to ${BUILD_NUMBER} [skip ci]" || echo "No changes to commit"
+
+                        git push https://\${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+                    """
             }
         }
     }
