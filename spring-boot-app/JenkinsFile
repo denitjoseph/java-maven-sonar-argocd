@@ -33,11 +33,9 @@ pipeline {
                     withSonarQubeEnv('sonarqube') {
                         sh """
                             ${scannerHome}/bin/sonar-scanner \
-                                -Dsonar.projectKey=fastapi-gitops-app \
-                                -Dsonar.projectName='FastAPI GitOps App' \
-                                -Dsonar.sources=app/ \
-                                -Dsonar.language=py \
-                                -Dsonar.python.version=3.11 \
+                                -Dsonar.projectKey=my-ec2-project \
+                                -Dsonar.sources=java-maven-sonar-argocd-helm-k8s/spring-boot-app/src/main/java \
+                                -Dsonar.java.binaries=java-maven-sonar-argocd-helm-k8s/spring-boot-app/target/classes \
                                 -Dsonar.sourceEncoding=UTF-8
                         """
                     }
